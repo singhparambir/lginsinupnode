@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
@@ -6,9 +6,27 @@ import { ToastContainer, toast } from 'react-toastify';
 export default function ResetPassword() {
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [hasClicked, setHasClicked] = useState(false);
     const { token } = useParams();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const checkTokenValidity = async () => {
+            try {
+                // Adding a delay to ensure proper token verification timing
+
+                const { data } = await axios.get(`http://localhost:4000/check-token/${token}`);
+                if (!data.valid) {
+                    toast.error('Token expired');
+                    setTimeout(() => navigate('/login'), 3000); // Increased delay to give user more time to see the message
+                }
+            } catch (error) {
+                toast.error('Error checking token validity');
+                setTimeout(() => navigate('/login'), 3000); // Increased delay
+            }
+        };
+
+        checkTokenValidity();
+    }, [token, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,17 +37,18 @@ export default function ResetPassword() {
         }
 
         setIsSubmitting(true);
-        setHasClicked(true);
 
         try {
-            const { data } = await axios.post(`http://localhost:4000/reset-password/${token}`, { password });
-            toast.success(data.message);
+            const { data } = await axios.get(`http://localhost:4000/verify-token/${token}`); toast.success(data.message);
             setTimeout(() => navigate('/login'), 2000);
         } catch (error) {
-            toast.error('Failed to reset password');
+            if (error.response && error.response.data.message === 'Invalid or expired token.') {
+                toast.error('The reset link has expired. Please request a new password reset.');
+            } else {
+                toast.error('Failed to reset password');
+            }
         } finally {
             setIsSubmitting(false);
-            // Optionally, reset the hasClicked flag after a successful operation
         }
     };
 

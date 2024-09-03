@@ -3,6 +3,7 @@ import { connect } from "mongoose";
 import cors from "cors";
 const app = express();
 import dotenv from "dotenv";
+import './cronJobs.js';
 
 import cookieParser from "cookie-parser";
 import authRoute from "./Routes/AuthRoute.js";

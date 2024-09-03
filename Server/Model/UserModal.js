@@ -1,7 +1,7 @@
-// 
 
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
+
 
 const userSchema = new mongoose.Schema({
     email: {
@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema({
     },
     resetToken: String,
     resetTokenExpiry: Date,
+    resetTokenStatus: {
+        type: Number,
+        default: 0 // 0 for valid, 1 for expired
+    },
     retries: {
         type: Number,
         default: 0,
