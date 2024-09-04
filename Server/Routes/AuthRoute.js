@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { userVerification } from '../Middlewares/AuthMiddleware.js';
 import { Signup, Login, forgotPassword, resetPassword } from '../Controller/AuthController.js';
+import { checkLoginAttempts } from '../Middlewares/AuthMiddleware.js'; // New middleware for lockout feature
 
 const router = Router();
 
 router.post('/', userVerification);
 router.post('/signup', Signup);
-router.post('/login', Login);
+
+// Apply the checkLoginAttempts middleware before the Login handler
+router.post('/login', checkLoginAttempts, Login);
+
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 
@@ -14,7 +18,7 @@ router.post('/reset-password/:token', resetPassword);
 router.get('/verify-token/:token', async (req, res) => {
     const { token } = req.params;
     try {
-        const user = await user.findOne({
+        const user = await User.findOne({
             resetToken: token,
             resetTokenExpiry: { $gt: Date.now() }
         });

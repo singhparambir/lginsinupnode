@@ -12,16 +12,17 @@ export default function ResetPassword() {
     useEffect(() => {
         const checkTokenValidity = async () => {
             try {
-                // Adding a delay to ensure proper token verification timing
+                // Adding a short delay to ensure proper token verification timing
+                //await new Promise(resolve => setTimeout(resolve, )); // 500ms delay
 
                 const { data } = await axios.get(`http://localhost:4000/check-token/${token}`);
                 if (!data.valid) {
                     toast.error('Token expired');
-                    setTimeout(() => navigate('/login'), 3000); // Increased delay to give user more time to see the message
+                    setTimeout(() => navigate('/login'), 18000);
                 }
             } catch (error) {
-                toast.error('Error checking token validity');
-                setTimeout(() => navigate('/login'), 3000); // Increased delay
+                //  toast.error('Error checking token validity');
+                setTimeout(() => navigate('/login'), 18000);
             }
         };
 
@@ -39,7 +40,8 @@ export default function ResetPassword() {
         setIsSubmitting(true);
 
         try {
-            const { data } = await axios.get(`http://localhost:4000/verify-token/${token}`); toast.success(data.message);
+            const { data } = await axios.post(`http://localhost:4000/reset-password/${token}`, { password });
+            toast.success(data.message);
             setTimeout(() => navigate('/login'), 2000);
         } catch (error) {
             if (error.response && error.response.data.message === 'Invalid or expired token.') {
@@ -66,8 +68,10 @@ export default function ResetPassword() {
                         onChange={(e) => setPassword(e.target.value)}
                     />
                 </div>
+
                 <button type="submit" disabled={isSubmitting}>
                     {isSubmitting ? 'Processing...' : 'Reset Password'}
+
                 </button>
             </form>
             <ToastContainer />

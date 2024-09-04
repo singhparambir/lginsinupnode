@@ -32,3 +32,31 @@ export function userVerification(req, res) {
         }
     });
 }
+
+
+export const checkLoginAttempts = async (req, res, next) => {
+    const { email } = req.body;
+    const currentTime = new Date();
+
+    try {
+        const user = await User.findOne({ email });
+
+        if (user) {
+            const { failedAttempts } = user;
+
+            if (failedAttempts.count >= 3 && (currentTime - new Date(failedAttempts.lastAttempt)) < lockoutPeriod) {
+                const timeLeft = Math.ceil((lockoutPeriod - (currentTime - new Date(failedAttempts.lastAttempt))) / 60000);
+                return res.status(403).json({ message: `Account locked. Try again in ${timeLeft} minutes.` });
+            } else if (failedAttempts.count >= 3) {
+                // Reset attempts if lockout period has expired
+                user.failedAttempts.count = 0;
+                user.failedAttempts.lastAttempt = currentTime;
+                await user.save();
+            }
+        }
+
+        next();
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}

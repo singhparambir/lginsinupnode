@@ -4,8 +4,8 @@ import bcrypt from "bcrypt";
 import crypto from 'crypto';
 
 
-// import { sendResetEmail } from "../Util/SendEmail.js";
-import * as EmailService from "../Util/emailService.js";
+import { sendResetEmail } from "../Util/emailService.js";
+// import * as EmailService from "../Util/emailService.js";
 
 
 export const Signup = async (req, res, next) => {
@@ -38,6 +38,10 @@ export const Signup = async (req, res, next) => {
         console.log(error)
     }
 };
+
+const lockoutPeriod = 2 * 60 * 1000; // 2 minutes in milliseconds
+
+// Inside your Login function
 export const Login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -51,9 +55,25 @@ export const Login = async (req, res, next) => {
         }
 
         const auth = await bcrypt.compare(password, user.password);
+        const currentTime = new Date();
+
         if (!auth) {
+            // If password is incorrect, increment failed attempts
+            user.failedAttempts.count += 1;
+            user.failedAttempts.lastAttempt = currentTime;
+            await user.save();
+
+            if (user.failedAttempts.count >= 3) {
+                return res.status(403).json({ message: 'Account locked. Try again in 2 minutes.' });
+            }
+
             return res.status(400).json({ message: 'Incorrect email or password' });
         }
+
+        // If password is correct, reset failed attempts and lockout status
+        user.failedAttempts.count = 0;
+        user.failedAttempts.lastAttempt = currentTime;
+        await user.save();
 
         const token = createSecretToken(user._id);
         res.cookie("token", token, { withCredentials: true, httpOnly: false });
@@ -65,7 +85,6 @@ export const Login = async (req, res, next) => {
     }
 };
 
-
 export const forgotPassword = async (req, res) => {
     const { email } = req.body;
     try {
@@ -76,11 +95,11 @@ export const forgotPassword = async (req, res) => {
 
         const token = crypto.randomBytes(32).toString("hex");
         user.resetToken = token;
-        user.resetTokenExpiry = Date.now() + 2 * 60 * 1000; // 2 mint
-        user.scheduling = 0; // 0 for valid use kitta
+        user.resetTokenExpiry = Date.now() + (3 * 60 * 1000); // Token expires in 3 minutes
+        user.resetTokenStatus = 0; // 0 means token is valid
         await user.save();
 
-        await EmailService.sendResetEmail(user.email, token);
+        await sendResetEmail(user.email, token); // Sends the reset email with the token
         res.status(200).json({ message: "Password reset link sent to your email." });
     } catch (error) {
         console.error('Error in forgotPassword:', error);
@@ -94,21 +113,21 @@ export const checkTokenValidity = async (req, res) => {
     try {
         const user = await User.findOne({
             resetToken: token,
-            resetTokenExpiry: { $gt: Date.now() },
-            scheduling: 0
+            resetTokenExpiry: { $gt: Date.now() }, // Token must not be expired
+            resetTokenStatus: 0 // 0 means token is still valid
         });
 
         if (!user) {
             return res.status(200).json({ valid: false });
         }
 
+        // Just return validity status, don't modify the user object here
         res.status(200).json({ valid: true });
     } catch (error) {
         console.error('Error in checkTokenValidity:', error);
         res.status(500).json({ valid: false });
     }
 };
-
 export const resetPassword = async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
@@ -116,21 +135,18 @@ export const resetPassword = async (req, res) => {
     try {
         const user = await User.findOne({
             resetToken: token,
-            resetTokenExpiry: { $gt: Date.now() },
-            scheduling: 0
+            resetTokenExpiry: { $gt: Date.now() }, // Token must not be expired
+            resetTokenStatus: 0 // 0 means token is still valid
         });
 
         if (!user) {
             return res.status(400).json({ message: "Invalid or expired token." });
         }
 
-        //   const hashedPassword = await bcrypt.hash(password, 12);
-        // eh jo main commentkitta hai enhu je comment na karan tan do waari hashing hundi hai ik vaari ethe te ik vaari database ch pwaan wehle 
-
         user.password = password;
         user.resetToken = undefined;
         user.resetTokenExpiry = undefined;
-        user.scheduling = undefined;
+        user.resetTokenStatus = 1; // 1 means token is now expired
 
         await user.save();
 

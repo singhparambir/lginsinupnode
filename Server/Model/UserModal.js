@@ -1,7 +1,5 @@
-
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-
 
 const userSchema = new mongoose.Schema({
     email: {
@@ -31,9 +29,22 @@ const userSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
+
     lockUntil: {
         type: Date,
+    },
+
+    failedAttempts: {    // eh schema main banaya hai failed attempts nu track karan lai
+        count: {
+            type: Number,  // count nal pata laggu ki kinhe aari hoya
+            default: 0
+        },
+        lastAttempt: {
+            type: Date,     // eh last attempt di date te time houga jithon baad fer menu set karna hou ki kad enable karna hai
+            default: Date.now
+        }
     }
+
 });
 
 // Hash the password before saving the user
@@ -44,6 +55,7 @@ userSchema.pre('save', async function (next) {
     next();
 });
 
+
 const User = mongoose.model('User', userSchema);
 
-export default User; // Default export
+export default User;
